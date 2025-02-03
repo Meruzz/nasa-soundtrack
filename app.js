@@ -61,7 +61,7 @@ function generateSoundtrack(color, audioContext, analyser) {
     const reverb = audioContext.createConvolver();
     
     // Cargar impulso de reverb
-    fetch('https://raw.githubusercontent.com/Meruzz/nasa-soundtrack/refs/heads/main/impulse.wav')
+    fetch('https://raw.githubusercontent.com/Meruzz/nasa-soundtrack/main/impulse.wav')
         .then(response => response.arrayBuffer())
         .then(buffer => audioContext.decodeAudioData(buffer))
         .then(decoded => {
