@@ -69,6 +69,9 @@ function generateSoundtrack(color, audioContext, analyser) {
             oscillator.connect(analyser);
             analyser.connect(reverb);
             reverb.connect(audioContext.destination);
+        })
+        .catch(error => {
+            alert('Error al cargar el archivo de impulso de reverb 🚨: ' + error.message);
         });
 
     oscillator.start();

@@ -2,19 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>NASA Soundtrack Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Sound Explorer | NASA Image Sonification</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/node-vibrant/3.1.6/vibrant.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Soundtrack del Universo 🌌</h1>
-        <button id="generateBtn">Generar</button>
-        <div class="loader" id="loader"></div>
-        <canvas id="visualizer"></canvas>
-        <div id="imageContainer"></div>
-        <audio id="audioPlayer" controls hidden></audio>
+        <section class="hero">
+            <h1>Cosmic Sound Explorer</h1>
+            <p>Descubre la música oculta del universo: una experiencia única que transforma las imágenes astronómicas de la NASA en melodías cósmicas.</p>
+        </section>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>🌌 Tecnología NASA</h3>
+                <p>Utilizamos la API oficial de la NASA para traerte las más impresionantes imágenes astronómicas del día.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🎵 Sonificación Avanzada</h3>
+                <p>Nuestro algoritmo especializado convierte los colores cósmicos en frecuencias sonoras únicas.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔮 IA y Color</h3>
+                <p>Análisis de color mediante inteligencia artificial para crear melodías perfectamente sincronizadas.</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <button id="generateBtn">Explorar el Cosmos 🚀</button>
+            <div class="loader" id="loader"></div>
+            <canvas id="visualizer"></canvas>
+            <div id="imageContainer"></div>
+            <audio id="audioPlayer" controls hidden></audio>
+        </div>
     </div>
+
+    <div class="creator-badge">
+        Desarrollado por un Ingeniero Senior Espacial 👨‍🚀
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
