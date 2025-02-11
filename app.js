@@ -12,34 +12,32 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         loader.style.display = 'block';
         imageContainer.innerHTML = '';
 
-        // Obtener imagen
-        const response = await fetch(NASA_API);
-        const data = await response.json();
+        // Obtener imagen con reintentos
+        const data = await fetchWithRetry(NASA_API, 3);
         
-        // Mostrar imagen
+        // Mostrar imagen con reintentos
+        const imgUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(data.url)}`;
         const img = new Image();
         img.crossOrigin = "Anonymous";
-        img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(data.url)}`;
-        img.onload = async () => {
-            imageContainer.appendChild(img);
-            
-            // Analizar color
-            const palette = await Vibrant.from(img).getPalette();
-            const mainColor = palette.Vibrant?.getHex() || '#FFFFFF';
-            
-            // Configurar audio
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const analyser = initVisualizer(audioContext);
-            generateSoundtrack(mainColor, audioContext, analyser);
-            
-            const mediaStreamDestination = audioContext.createMediaStreamDestination();
-            audioPlayer.srcObject = mediaStreamDestination.stream;
-            audioPlayer.style.visibility = 'visible';
+        await loadImageWithRetry(img, imgUrl, 3);
+        imageContainer.appendChild(img);
+        
+        // Analizar color
+        const palette = await Vibrant.from(img).getPalette();
+        const mainColor = palette.Vibrant?.getHex() || '#FFFFFF';
+        
+        // Configurar audio
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = initVisualizer(audioContext);
+        generateSoundtrack(mainColor, audioContext, analyser);
+        
+        const mediaStreamDestination = audioContext.createMediaStreamDestination();
+        audioPlayer.srcObject = mediaStreamDestination.stream;
+        audioPlayer.style.visibility = 'visible';
 
-            loader.style.display = 'none';
-            btn.disabled = false;
-            document.getElementById('audioPlayer').hidden = false;
-        };
+        loader.style.display = 'none';
+        btn.disabled = false;
+        document.getElementById('audioPlayer').hidden = false;
 
     } catch (error) {
         alert('Error cósmico 🚨: ' + error.message);
@@ -47,6 +45,33 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         document.getElementById('generateBtn').disabled = false;
     }
 });
+
+async function fetchWithRetry(url, retries) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response was not ok');
+            return await response.json();
+        } catch (error) {
+            if (i === retries - 1) throw error;
+        }
+    }
+}
+
+async function loadImageWithRetry(img, url, retries) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+            });
+            return;
+        } catch (error) {
+            if (i === retries - 1) throw error;
+        }
+    }
+}
 
 function generateSoundtrack(color, audioContext, analyser) {
     // Convertir color a frecuencia
