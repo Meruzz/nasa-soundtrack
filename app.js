@@ -1,5 +1,13 @@
-// Reemplaza DEMO_KEY con tu API key
-const NASA_API = 'https://api.nasa.gov/planetary/apod?api_key=Nctp77oPbZ6N5JSyn3xuYM0A4s8axg45FYsPKLli';
+const CONFIG = {
+    NASA_API_KEY: 'Nctp77oPbZ6N5JSyn3xuYM0A4s8axg45FYsPKLli',
+    PROXIES: [
+        'https://corsproxy.io/?',
+        'https://api.allorigins.win/raw?url=',
+        'https://api.codetabs.com/v1/proxy?quest='
+    ]
+};
+
+const NASA_API = `https://api.nasa.gov/planetary/apod?api_key=${CONFIG.NASA_API_KEY}&count=1&thumbs=true`;
 
 document.getElementById('generateBtn').addEventListener('click', async () => {
     try {
@@ -12,34 +20,79 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         loader.style.display = 'block';
         imageContainer.innerHTML = '';
 
-        // Obtener imagen con reintentos
-        const data = await fetchWithRetry(NASA_API, 3);
-        
-        // Mostrar imagen con reintentos
-        const imgUrl = `https://thingproxy.freeboard.io/fetch/${data.url}`;
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        await loadImageWithRetry(img, imgUrl, 3);
-        imageContainer.appendChild(img);
-        
-        // Analizar color
-        const palette = await Vibrant.from(img).getPalette();
-        const mainColor = palette.Vibrant?.getHex() || '#FFFFFF';
-        
-        // Configurar audio
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const analyser = initVisualizer(audioContext);
-        generateSoundtrack(mainColor, audioContext, analyser);
-        
-        const mediaStreamDestination = audioContext.createMediaStreamDestination();
-        audioPlayer.srcObject = mediaStreamDestination.stream;
-        audioPlayer.style.visibility = 'visible';
+        // Fetch NASA APOD data
+        let data = await fetchWithRetry(NASA_API, 3);
+        data = Array.isArray(data) ? data[0] : data; // Si es un array, tomar el primer elemento
+
+        // Si es un video, volver a intentar hasta obtener una imagen
+        let attempts = 0;
+        while (data.media_type === 'video' && attempts < 3) {
+            console.log('Received video, trying again for an image...');
+            data = await fetchWithRetry(NASA_API, 3);
+            data = Array.isArray(data) ? data[0] : data;
+            attempts++;
+        }
+
+        if (data.media_type === 'video') {
+            throw new Error('No se pudo obtener una imagen después de varios intentos');
+        }
+
+        console.log('NASA API Response:', data); // Debug log
+
+        if (!data) {
+            throw new Error('No se recibió respuesta de la API de NASA');
+        }
+
+        // Verificar el tipo de medio
+        if (data.media_type === 'video') {
+            // Crear un iframe para videos
+            const iframe = document.createElement('iframe');
+            iframe.width = "560";
+            iframe.height = "315";
+            iframe.src = data.url;
+            iframe.frameBorder = "0";
+            iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+            imageContainer.appendChild(iframe);
+
+            // Usar un color predeterminado para videos
+            const defaultColor = '#4A90E2';
+            
+            // Configure audio
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = initVisualizer(audioContext);
+            generateSoundtrack(defaultColor, audioContext, analyser);
+            
+            const mediaStreamDestination = audioContext.createMediaStreamDestination();
+            audioPlayer.srcObject = mediaStreamDestination.stream;
+            audioPlayer.style.visibility = 'visible';
+        } else {
+            // Manejar imágenes como antes
+            const mediaUrl = data.hdurl || data.url;
+            console.log('Loading image:', mediaUrl);
+            
+            const img = await loadImage(mediaUrl);
+            imageContainer.appendChild(img);
+            
+            // Analyze color
+            const palette = await Vibrant.from(img).getPalette();
+            const mainColor = palette.Vibrant?.getHex() || '#FFFFFF';
+            
+            // Configure audio
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = initVisualizer(audioContext);
+            generateSoundtrack(mainColor, audioContext, analyser);
+            
+            const mediaStreamDestination = audioContext.createMediaStreamDestination();
+            audioPlayer.srcObject = mediaStreamDestination.stream;
+            audioPlayer.style.visibility = 'visible';
+        }
 
         loader.style.display = 'none';
         btn.disabled = false;
         document.getElementById('audioPlayer').hidden = false;
 
     } catch (error) {
+        console.error('Error:', error);
         alert('Error cósmico 🚨: ' + error.message);
         document.getElementById('loader').style.display = 'none';
         document.getElementById('generateBtn').disabled = false;
@@ -50,11 +103,55 @@ async function fetchWithRetry(url, retries) {
     for (let i = 0; i < retries; i++) {
         try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return await response.json();
         } catch (error) {
+            console.warn(`Attempt ${i + 1} failed:`, error);
             if (i === retries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
         }
+    }
+}
+
+async function loadImage(url) {
+    // Intentar cargar la imagen directamente primero
+    try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = url;
+        });
+        return img;
+    } catch (error) {
+        console.log('Direct image load failed, trying proxies...');
+        
+        // Si falla, intentar con cada proxy
+        for (const proxy of CONFIG.PROXIES) {
+            try {
+                const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
+                console.log('Trying proxy:', proxyUrl);
+                
+                const response = await fetch(proxyUrl);
+                const blob = await response.blob();
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = URL.createObjectURL(blob);
+                });
+                
+                return img;
+            } catch (error) {
+                console.log('Proxy failed:', proxy);
+                continue;
+            }
+        }
+        
+        throw new Error('Failed to load image through all available methods');
     }
 }
 
@@ -63,12 +160,16 @@ async function loadImageWithRetry(img, url, retries) {
         try {
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
-                img.onerror = reject;
+                img.onerror = (e) => {
+                    console.warn(`Image load attempt ${i + 1} failed:`, e);
+                    reject(new Error('Failed to load image'));
+                };
                 img.src = url;
             });
             return;
         } catch (error) {
             if (i === retries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
         }
     }
 }
